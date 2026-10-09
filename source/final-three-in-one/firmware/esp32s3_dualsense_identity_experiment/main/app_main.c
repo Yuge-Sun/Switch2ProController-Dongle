@@ -401,7 +401,7 @@ uint16_t tud_hid_get_report_cb(uint8_t instance,
         bool populated = dualsense_report_make_feature(report_id, buffer, length);
         s_feature_get_count++;
         if (s_feature_get_count <= 8 || (s_feature_get_count % 256) == 0) {
-            ESP_LOGI(TAG,
+            ESP_LOGD(TAG,
                      "[DS5_FEATURE] report_id=0x%02x len=%u populated=%s count=%lu",
                      report_id,
                      (unsigned)length,
@@ -434,7 +434,7 @@ void tud_hid_set_report_cb(uint8_t instance,
         buffer,
         bufsize);
     if (s_output_count <= 8 || (s_output_count % 250) == 0) {
-        ESP_LOGI(TAG,
+        ESP_LOGD(TAG,
                  "[DS5_OUTPUT] report_id=0x%02x effective_report_id=0x%02x type=%u len=%u count=%lu rumble_handled=%s",
                  report_id,
                  effective_report_id,
@@ -737,7 +737,7 @@ static void neutral_report_task(void *arg)
                 s_report_submit_failure_streak = 0;
                 s_first_report_submit_failure_us = 0;
                 if (s_report_count == 1 || (s_report_count % 2500) == 0) {
-                    ESP_LOGI(TAG,
+                    ESP_LOGD(TAG,
                              "[DS5_REPORT] source=%s cadence=%s sent=true report_id=0x%02x len=%u count=%lu updates=%lu",
                              using_pro2 ? "pro2" : "neutral",
                              "usb_poll_250hz",
@@ -782,7 +782,7 @@ static void neutral_report_task(void *arg)
 
         if (now_us >= next_input_log_us) {
             if (using_pro2) {
-                ESP_LOGI(TAG,
+                ESP_LOGD(TAG,
                          "[DS5_INPUT_MAP] buttons=0x%04x hat=%u raw12=(%u,%u,%u,%u) ds5=(%u,%u,%u,%u) l2=%u r2=%u updates=%lu age_ms=%lld",
                          debug.buttons,
                          debug.hat,
@@ -798,7 +798,7 @@ static void neutral_report_task(void *arg)
                          debug.r2,
                          (unsigned long)updates,
                          (long long)(age_us / 1000));
-                ESP_LOGI(TAG,
+                ESP_LOGD(TAG,
                          "[DS5_INPUT_MAP] gyro=%d,%d,%d accel=%d,%d,%d motion_valid=%s",
                          debug.gyro[0],
                          debug.gyro[1],
@@ -808,7 +808,7 @@ static void neutral_report_task(void *arg)
                          debug.accel[2],
                          debug.motion_valid ? "true" : "false");
             } else {
-                ESP_LOGI(TAG,
+                ESP_LOGD(TAG,
                          "[DS5_INPUT] source=neutral reason=%s ble_state=%s updates=%lu age_ms=%lld warmup=%lu/%u",
                          connected ? (live_recent ? "warming_pro2_input" : "stale_pro2_input") : "no_pro2",
                          pro2_input_backend_state(),
@@ -829,7 +829,7 @@ void app_main(void)
     ESP_LOGI(TAG, "[DS5_IDENTITY] enabled=true mode=dualsense_experimental profile=%s",
              DS5_PROFILE_NAME);
     ESP_LOGI(TAG,
-             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us");
+             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us gyro_fix_revision=2");
     ESP_LOGI(TAG,
              "[DS5_IDENTITY] vid=0x054c pid=0x%04x product=%s",
              DS5_USB_PID,

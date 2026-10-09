@@ -81,7 +81,9 @@ static bool gyro_bias_sample_is_stationary(
     const int16_t accel[3],
     const int16_t gyro[3])
 {
-    if (!state || state->buttons != 0 ||
+    // Holding aim (or another button) does not imply physical motion. Do not
+    // prevent stationary bias calibration while the game enables gyro aiming.
+    if (!state ||
         abs((int)state->lx - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||
         abs((int)state->ly - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||
         abs((int)state->rx - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||

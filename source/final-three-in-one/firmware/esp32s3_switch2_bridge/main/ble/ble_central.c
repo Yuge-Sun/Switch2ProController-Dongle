@@ -2151,7 +2151,7 @@ static void handle_notify_rx(const struct ble_gap_event *event)
             (void)request_fast_conn_params_internal("live_warmup");
         }
         if ((updates & 0x1ff) == 1) {
-            APP_LOGI(TAG, "BLE notify parsed uuid=%s len=%u updates=%lu buttons=0x%08lx",
+            APP_LOGD(TAG, "BLE notify parsed uuid=%s len=%u updates=%lu buttons=0x%08lx",
                      uuid,
                      len,
                      (unsigned long)updates,

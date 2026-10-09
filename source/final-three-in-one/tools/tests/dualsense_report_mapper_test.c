@@ -210,6 +210,55 @@ static void test_stationary_gyro_bias_is_removed_once(void)
     expect_i16("DualSense calibrated gyro Z is zero", 0, read_i16_le(report + 19));
 }
 
+static void test_stationary_calibration_with_aim_held(void)
+{
+    internal_gamepad_state_t state;
+    internal_gamepad_state_reset(&state);
+    state.accel_valid = true;
+    state.gyro_valid = true;
+    state.accel[2] = 4096;
+    state.gyro[0] = 12;
+    state.gyro[1] = -4;
+    state.gyro[2] = -20;
+    state.l2 = INTERNAL_GAMEPAD_TRIGGER_MAX;
+    internal_gamepad_state_set_button(&state, INTERNAL_GAMEPAD_BUTTON_L2, true);
+
+    uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE];
+    dualsense_report_mapper_init();
+    for (int i = 0; i < 250; i++) {
+        dualsense_report_mapper_from_internal(&state, report, NULL);
+    }
+    expect_i16("Aim held: calibrated gyro X", 0, read_i16_le(report + 15));
+    expect_i16("Aim held: calibrated gyro Y", 0, read_i16_le(report + 17));
+    expect_i16("Aim held: calibrated gyro Z", 0, read_i16_le(report + 19));
+    expect_u32("Aim trigger remains held", 255u, report[4]);
+    expect_u32("Aim button remains held", 4u, report[8] & 4u);
+
+    // Normal motion after calibration must still pass through immediately.
+    state.gyro[2] += 300;
+    dualsense_report_mapper_from_internal(&state, report, NULL);
+    expect_i16("Aim held: deliberate yaw is preserved", 345,
+               read_i16_le(report + 17));
+}
+
+static void test_moving_with_aim_held_does_not_calibrate(void)
+{
+    internal_gamepad_state_t state;
+    internal_gamepad_state_reset(&state);
+    state.accel_valid = true;
+    state.gyro_valid = true;
+    state.accel[2] = 4096;
+    state.gyro[2] = 1000;
+    internal_gamepad_state_set_button(&state, INTERNAL_GAMEPAD_BUTTON_L2, true);
+    uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE];
+    dualsense_report_mapper_init();
+    for (int i = 0; i < 300; i++) {
+        dualsense_report_mapper_from_internal(&state, report, NULL);
+    }
+    expect_i16("Moving while aiming does not become zero", 1150,
+               read_i16_le(report + 17));
+}
+
 static void test_i16_min_negation_saturates(void)
 {
     internal_gamepad_state_t state;
@@ -234,6 +283,8 @@ int main(void)
     test_stationary_gyro_bias_is_removed_once();
     test_elapsed_sensor_clock();
     test_cached_motion_does_not_recalibrate();
+    test_stationary_calibration_with_aim_held();
+    test_moving_with_aim_held_does_not_calibrate();
 
     if (s_failures != 0) {
         return 1;
