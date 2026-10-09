@@ -25,6 +25,9 @@ typedef struct {
 } dualsense_input_debug_t;
 
 void dualsense_report_mapper_init(void);
+// Refresh a cached report without processing its motion/calibration again.
+void dualsense_report_mapper_refresh_timing(
+    uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE]);
 void dualsense_report_mapper_neutral(
     uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE]);
 void dualsense_report_mapper_from_internal(

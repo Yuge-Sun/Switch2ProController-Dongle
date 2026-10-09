@@ -109,7 +109,6 @@ static TaskHandle_t s_input_task_handle;
 #define PRO2_INPUT_STALE_US 200000LL
 #define PRO2_INPUT_WARMUP_UPDATES 4
 #define DS5_SOURCE_POLL_MS 1
-#define DS5_NEUTRAL_KEEPALIVE_US 50000LL
 #define DS5_HID_ENDPOINT_KICK_STALL_US 1000000LL
 #define DS5_HID_ENDPOINT_KICK_COOLDOWN_US 1000000LL
 #define DS5_HID_ENDPOINT_KICK_SUBMIT_FAILURE_US 25000LL
@@ -675,10 +674,9 @@ static void neutral_report_task(void *arg)
     bool last_connected = false;
     uint32_t stable_update_count = 0;
     uint32_t last_seen_updates = 0;
-    uint32_t last_sent_updates = 0;
+    uint32_t last_mapped_updates = 0;
     bool source_report_latched = false;
     bool neutral_report_latched = false;
-    int64_t next_neutral_keepalive_us = 0;
     dualsense_input_debug_t debug = {0};
     TickType_t next_wake = xTaskGetTickCount();
     dualsense_report_mapper_init();
@@ -701,15 +699,6 @@ static void neutral_report_task(void *arg)
             }
         }
         bool using_pro2 = live_recent && stable_update_count >= PRO2_INPUT_WARMUP_UPDATES;
-        bool should_send = false;
-        if (using_pro2) {
-            should_send = !source_report_latched || updates != last_sent_updates;
-            neutral_report_latched = false;
-        } else {
-            source_report_latched = false;
-            should_send = !neutral_report_latched ||
-                          now_us >= next_neutral_keepalive_us;
-        }
         if (connected != last_connected) {
             ESP_LOGI(TAG,
                      "[PRO2_INPUT] connected=%s state=%s",
@@ -721,12 +710,23 @@ static void neutral_report_task(void *arg)
         if (s_mounted && s_usb_configuration_ready &&
             !s_suspended && !s_usb_recovering &&
             !s_hid_endpoint_kick_pending &&
-            should_send && tud_hid_n_ready(0)) {
-            if (using_pro2) {
+            tud_hid_n_ready(0)) {
+            // Keep the 4 ms USB IN endpoint supplied even between BLE updates.
+            // Map/calibrate only new source updates; repeat the cached payload
+            // with fresh timing so BLE jitter does not set the USB cadence.
+            if (using_pro2 &&
+                (!source_report_latched || updates != last_mapped_updates)) {
                 dualsense_report_mapper_from_pro2(&state, report, &debug);
-            } else {
+                last_mapped_updates = updates;
+                source_report_latched = true;
+                neutral_report_latched = false;
+            } else if (!using_pro2 && !neutral_report_latched) {
                 dualsense_report_mapper_neutral(report);
                 memset(&debug, 0, sizeof(debug));
+                source_report_latched = false;
+                neutral_report_latched = true;
+            } else {
+                dualsense_report_mapper_refresh_timing(report);
             }
             bool sent = tud_hid_n_report(0,
                                          DUALSENSE_INPUT_REPORT_ID,
@@ -736,19 +736,11 @@ static void neutral_report_task(void *arg)
                 s_report_count++;
                 s_report_submit_failure_streak = 0;
                 s_first_report_submit_failure_us = 0;
-                if (using_pro2) {
-                    last_sent_updates = updates;
-                    source_report_latched = true;
-                } else {
-                    neutral_report_latched = true;
-                    next_neutral_keepalive_us =
-                        now_us + DS5_NEUTRAL_KEEPALIVE_US;
-                }
                 if (s_report_count == 1 || (s_report_count % 2500) == 0) {
                     ESP_LOGI(TAG,
                              "[DS5_REPORT] source=%s cadence=%s sent=true report_id=0x%02x len=%u count=%lu updates=%lu",
                              using_pro2 ? "pro2" : "neutral",
-                             using_pro2 ? "ble_source_updates" : "20hz_neutral_keepalive",
+                             "usb_poll_250hz",
                              DUALSENSE_INPUT_REPORT_ID,
                              (unsigned)sizeof(report),
                              (unsigned long)s_report_count,
@@ -769,8 +761,7 @@ static void neutral_report_task(void *arg)
                     next_wake = xTaskGetTickCount();
                 }
             }
-        } else if (should_send &&
-                   s_mounted && s_usb_configuration_ready &&
+        } else if (s_mounted && s_usb_configuration_ready &&
                    !s_suspended && !s_usb_recovering &&
                    !s_hid_endpoint_kick_pending) {
             s_report_not_ready_count++;
@@ -838,7 +829,7 @@ void app_main(void)
     ESP_LOGI(TAG, "[DS5_IDENTITY] enabled=true mode=dualsense_experimental profile=%s",
              DS5_PROFILE_NAME);
     ESP_LOGI(TAG,
-             "[DS5_INPUT_CADENCE] policy=ble_source_updates latest_state=true historical_replay=false neutral_keepalive_hz=20");
+             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us");
     ESP_LOGI(TAG,
              "[DS5_IDENTITY] vid=0x054c pid=0x%04x product=%s",
              DS5_USB_PID,

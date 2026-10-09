@@ -2,16 +2,17 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include "esp_timer.h"
 #include "gamepad_axis_math.h"
 
 static uint8_t s_sequence;
-static uint32_t s_sensor_timestamp;
+static int64_t s_sensor_time_origin_us;
 static bool s_gyro_bias_calibrated;
 static uint16_t s_gyro_bias_samples;
 static int64_t s_gyro_bias_sum[3];
 static int16_t s_gyro_bias[3];
 
-#define DS5_SENSOR_TICKS_PER_USB_REPORT 12000u
+#define DS5_SENSOR_INITIAL_TIMESTAMP 10200000u
 #define PRO2_ACCEL_RAW_PER_G 4096
 #define DS5_ACCEL_RAW_PER_G 8192
 #define PRO2_GYRO_RAW_PER_DPS_X1000 14247
@@ -132,19 +133,22 @@ static void update_gyro_bias(const internal_gamepad_state_t *state,
     s_gyro_bias_calibrated = true;
 }
 
-static void apply_sequence_and_timing(
+void dualsense_report_mapper_refresh_timing(
     uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE])
 {
     report[6] = s_sequence++;
-    write_u32_le(report + 27, s_sensor_timestamp);
-    s_sensor_timestamp += DS5_SENSOR_TICKS_PER_USB_REPORT;
+    // DualSense timestamps use three ticks per microsecond. Count elapsed
+    // time, including missed USB polls, failed submissions and neutral input.
+    // Unsigned arithmetic preserves the protocol's natural 32-bit wrap.
+    uint32_t elapsed_us = (uint32_t)(esp_timer_get_time() - s_sensor_time_origin_us);
+    write_u32_le(report + 27, DS5_SENSOR_INITIAL_TIMESTAMP + elapsed_us * 3u);
 }
 
 void dualsense_report_mapper_init(void)
 {
     s_sequence = 0;
     // SDL-compatible initial threshold observed in DS5 references.
-    s_sensor_timestamp = 10200000u;
+    s_sensor_time_origin_us = esp_timer_get_time();
     s_gyro_bias_calibrated = false;
     s_gyro_bias_samples = 0;
     memset(s_gyro_bias_sum, 0, sizeof(s_gyro_bias_sum));
@@ -155,7 +159,7 @@ void dualsense_report_mapper_neutral(
     uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE])
 {
     dualsense_report_make_neutral(report);
-    apply_sequence_and_timing(report);
+    dualsense_report_mapper_refresh_timing(report);
 }
 
 void dualsense_report_mapper_from_internal(

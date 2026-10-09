@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param()
+param([string]$ZigPath)
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -11,6 +11,18 @@ $axisSource = Join-Path $bridgeDir "gamepad_axis_math.c"
 $stateSource = Join-Path $bridgeDir "internal_gamepad_state.c"
 $buildDir = Join-Path $repoRoot "work\b\tests\dualsense_report_mapper"
 $exePath = Join-Path $buildDir "dualsense_report_mapper_test.exe"
+$stubDir = Join-Path $PSScriptRoot "stubs"
+
+if ($ZigPath) {
+    New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+    & $ZigPath cc -std=c11 -Wall -Wextra -Werror `
+        "-I$stubDir" "-I$dualsenseDir" "-I$bridgeDir" `
+        $testSource $mapperSource $axisSource $stateSource -o $exePath
+    if ($LASTEXITCODE -ne 0) { throw "DualSense mapper test compilation failed" }
+    & $exePath
+    if ($LASTEXITCODE -ne 0) { throw "DualSense mapper tests failed" }
+    return
+}
 
 $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 if (-not (Test-Path -LiteralPath $vswhere)) {
@@ -43,6 +55,7 @@ $cl = (Get-Command cl.exe -ErrorAction Stop).Source
 Push-Location $buildDir
 try {
     & $cl /nologo /W4 /WX /std:c11 `
+        "/I$stubDir" `
         "/I$dualsenseDir" `
         "/I$bridgeDir" `
         $testSource `
