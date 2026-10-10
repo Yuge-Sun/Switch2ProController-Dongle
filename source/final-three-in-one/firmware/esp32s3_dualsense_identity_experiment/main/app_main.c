@@ -56,6 +56,9 @@
 #endif
 
 static const char *TAG = "v5.5_ds5";
+#ifndef DS5_GYRO_CALIBRATE_WITH_BUTTONS
+#define DS5_GYRO_CALIBRATE_WITH_BUTTONS 1
+#endif
 static volatile bool s_mounted;
 static volatile bool s_suspended;
 static volatile bool s_usb_configuration_ready;
@@ -829,7 +832,11 @@ void app_main(void)
     ESP_LOGI(TAG, "[DS5_IDENTITY] enabled=true mode=dualsense_experimental profile=%s",
              DS5_PROFILE_NAME);
     ESP_LOGI(TAG,
+#if DS5_GYRO_CALIBRATE_WITH_BUTTONS
              "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us gyro_fix_revision=2");
+#else
+             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us gyro_test_variant=logging_only calibration_buttons=original");
+#endif
     ESP_LOGI(TAG,
              "[DS5_IDENTITY] vid=0x054c pid=0x%04x product=%s",
              DS5_USB_PID,

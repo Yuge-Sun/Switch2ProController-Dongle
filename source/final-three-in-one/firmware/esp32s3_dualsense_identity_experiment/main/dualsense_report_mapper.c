@@ -5,6 +5,10 @@
 #include "esp_timer.h"
 #include "gamepad_axis_math.h"
 
+#ifndef DS5_GYRO_CALIBRATE_WITH_BUTTONS
+#define DS5_GYRO_CALIBRATE_WITH_BUTTONS 1
+#endif
+
 static uint8_t s_sequence;
 static int64_t s_sensor_time_origin_us;
 static bool s_gyro_bias_calibrated;
@@ -84,6 +88,9 @@ static bool gyro_bias_sample_is_stationary(
     // Holding aim (or another button) does not imply physical motion. Do not
     // prevent stationary bias calibration while the game enables gyro aiming.
     if (!state ||
+#if !DS5_GYRO_CALIBRATE_WITH_BUTTONS
+        state->buttons != 0 ||
+#endif
         abs((int)state->lx - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||
         abs((int)state->ly - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||
         abs((int)state->rx - AXIS_CENTER) > AXIS_IDLE_TOLERANCE ||

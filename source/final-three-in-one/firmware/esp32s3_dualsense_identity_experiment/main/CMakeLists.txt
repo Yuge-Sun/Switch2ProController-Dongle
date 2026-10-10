@@ -2,6 +2,10 @@ if(NOT DEFINED V5_5_DS5_PROFILE)
     set(V5_5_DS5_PROFILE "hid_audio_uac2_4ch")
 endif()
 
+# OFF is an isolation test: retain quiet logging but restore the original
+# calibration rejection while buttons are held. Normal builds remain ON.
+option(DS5_GYRO_CALIBRATE_WITH_BUTTONS "Allow stationary gyro calibration while buttons are held" ON)
+
 set(DS5_ENABLE_USB_AUDIO 0)
 set(DS5_ENABLE_USB_COMPOSITE 0)
 set(DS5_DEVICE_CLASS_IAD 0)
@@ -160,6 +164,7 @@ idf_component_register(
 )
 
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    DS5_GYRO_CALIBRATE_WITH_BUTTONS=$<BOOL:${DS5_GYRO_CALIBRATE_WITH_BUTTONS}>
     DS5_PROFILE_NAME=\"${V5_5_DS5_PROFILE}\"
     DS5_PROFILE_SERIAL=\"${DS5_PROFILE_SERIAL}\"
     DS5_USB_PID=${DS5_USB_PID}

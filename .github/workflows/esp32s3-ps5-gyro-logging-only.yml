@@ -1,0 +1,49 @@
+name: ESP32-S3 PS5 gyro - logging only test
+
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+
+jobs:
+  mapper-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run mapper regressions
+        working-directory: source/final-three-in-one
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -DDS5_GYRO_CALIBRATE_WITH_BUTTONS=0 \
+            -Itools/tests/stubs \
+            -Ifirmware/esp32s3_dualsense_identity_experiment/main \
+            -Ifirmware/esp32s3_switch2_bridge/main/bridge \
+            tools/tests/dualsense_report_mapper_test.c \
+            firmware/esp32s3_dualsense_identity_experiment/main/dualsense_report_mapper.c \
+            firmware/esp32s3_switch2_bridge/main/bridge/gamepad_axis_math.c \
+            firmware/esp32s3_switch2_bridge/main/bridge/internal_gamepad_state.c \
+            -o /tmp/dualsense_report_mapper_test
+          /tmp/dualsense_report_mapper_test
+
+  firmware:
+    needs: mapper-tests
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.4.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build logging-only isolation firmware for 16 MB ESP32-S3
+        working-directory: source/final-three-in-one/firmware/esp32s3_dualsense_identity_experiment
+        shell: bash
+        run: |
+          . "$IDF_PATH/export.sh"
+          idf.py -D DS5_GYRO_CALIBRATE_WITH_BUTTONS=OFF -D V5_5_DS5_PROFILE=hid_audio_uac1_4ch_dualsense set-target esp32s3
+          idf.py -D DS5_GYRO_CALIBRATE_WITH_BUTTONS=OFF -D V5_5_DS5_PROFILE=hid_audio_uac1_4ch_dualsense build
+          cd build
+          python -m esptool --chip esp32s3 merge_bin -o ps5-gyro-logging-only.bin @flash_args
+          sha256sum ps5-gyro-logging-only.bin > SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: esp32s3-ps5-gyro-logging-only-test
+          path: |
+            source/final-three-in-one/firmware/esp32s3_dualsense_identity_experiment/build/ps5-gyro-logging-only.bin
+            source/final-three-in-one/firmware/esp32s3_dualsense_identity_experiment/build/SHA256SUMS.txt
+          if-no-files-found: error
