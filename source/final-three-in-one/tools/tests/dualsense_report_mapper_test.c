@@ -4,10 +4,6 @@
 
 #include "dualsense_report_mapper.h"
 
-#ifndef DS5_GYRO_CALIBRATE_WITH_BUTTONS
-#define DS5_GYRO_CALIBRATE_WITH_BUTTONS 1
-#endif
-
 static int s_failures;
 static int64_t s_now_us;
 static void expect_i16(const char *name, int16_t expected, int16_t actual);
@@ -232,11 +228,6 @@ static void test_stationary_calibration_with_aim_held(void)
     for (int i = 0; i < 250; i++) {
         dualsense_report_mapper_from_internal(&state, report, NULL);
     }
-#if DS5_GYRO_CALIBRATE_WITH_BUTTONS
-    expect_i16("Aim held: calibrated gyro X", 0, read_i16_le(report + 15));
-    expect_i16("Aim held: calibrated gyro Y", 0, read_i16_le(report + 17));
-    expect_i16("Aim held: calibrated gyro Z", 0, read_i16_le(report + 19));
-#else
     expect_i16("Logging-only: aim blocks calibration X", 14, read_i16_le(report + 15));
     expect_i16("Logging-only: aim blocks calibration Y", -23, read_i16_le(report + 17));
     expect_i16("Logging-only: aim blocks calibration Z", 5, read_i16_le(report + 19));
@@ -250,7 +241,6 @@ static void test_stationary_calibration_with_aim_held(void)
     internal_gamepad_state_set_button(&state, INTERNAL_GAMEPAD_BUTTON_L2, true);
     state.l2 = INTERNAL_GAMEPAD_TRIGGER_MAX;
     dualsense_report_mapper_from_internal(&state, report, NULL);
-#endif
     expect_u32("Aim trigger remains held", 255u, report[4]);
     expect_u32("Aim button remains held", 4u, report[8] & 4u);
 

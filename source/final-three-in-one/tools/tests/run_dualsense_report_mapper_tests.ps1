@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$ZigPath, [switch]$LoggingOnly)
+param([string]$ZigPath)
 
 $ErrorActionPreference = "Stop"
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..")).Path
@@ -12,12 +12,10 @@ $stateSource = Join-Path $bridgeDir "internal_gamepad_state.c"
 $buildDir = Join-Path $repoRoot "work\b\tests\dualsense_report_mapper"
 $exePath = Join-Path $buildDir "dualsense_report_mapper_test.exe"
 $stubDir = Join-Path $PSScriptRoot "stubs"
-$calibrationWithButtons = if ($LoggingOnly) { 0 } else { 1 }
 
 if ($ZigPath) {
     New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
     & $ZigPath cc -std=c11 -Wall -Wextra -Werror `
-        "-DDS5_GYRO_CALIBRATE_WITH_BUTTONS=$calibrationWithButtons" `
         "-I$stubDir" "-I$dualsenseDir" "-I$bridgeDir" `
         $testSource $mapperSource $axisSource $stateSource -o $exePath
     if ($LASTEXITCODE -ne 0) { throw "DualSense mapper test compilation failed" }
@@ -57,7 +55,6 @@ $cl = (Get-Command cl.exe -ErrorAction Stop).Source
 Push-Location $buildDir
 try {
     & $cl /nologo /W4 /WX /std:c11 `
-        "/DDS5_GYRO_CALIBRATE_WITH_BUTTONS=$calibrationWithButtons" `
         "/I$stubDir" `
         "/I$dualsenseDir" `
         "/I$bridgeDir" `
