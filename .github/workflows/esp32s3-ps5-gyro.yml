@@ -34,6 +34,7 @@ jobs:
             -Ifirmware/esp32s3_switch2_bridge/main/bridge \
             tools/tests/dualsense_report_mapper_test.c \
             firmware/esp32s3_dualsense_identity_experiment/main/dualsense_report_mapper.c \
+            firmware/esp32s3_dualsense_identity_experiment/main/dualsense_report.c \
             firmware/esp32s3_switch2_bridge/main/bridge/gamepad_axis_math.c \
             firmware/esp32s3_switch2_bridge/main/bridge/internal_gamepad_state.c \
             -o /tmp/dualsense_report_mapper_test

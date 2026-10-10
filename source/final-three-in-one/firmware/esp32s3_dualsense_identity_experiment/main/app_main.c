@@ -829,7 +829,7 @@ void app_main(void)
     ESP_LOGI(TAG, "[DS5_IDENTITY] enabled=true mode=dualsense_experimental profile=%s",
              DS5_PROFILE_NAME);
     ESP_LOGI(TAG,
-             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us gyro_fix=logging_only calibration_buttons=original");
+             "[DS5_INPUT_CADENCE] policy=usb_poll_250hz latest_state=true historical_replay=false sensor_clock=elapsed_us gyro_fix=logging_only calibration_buttons=original gyro_calibration=16p384");
     ESP_LOGI(TAG,
              "[DS5_IDENTITY] vid=0x054c pid=0x%04x product=%s",
              DS5_USB_PID,

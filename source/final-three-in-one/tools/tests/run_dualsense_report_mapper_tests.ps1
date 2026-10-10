@@ -7,6 +7,7 @@ $bridgeDir = Join-Path $repoRoot "firmware\esp32s3_switch2_bridge\main\bridge"
 $dualsenseDir = Join-Path $repoRoot "firmware\esp32s3_dualsense_identity_experiment\main"
 $testSource = Join-Path $PSScriptRoot "dualsense_report_mapper_test.c"
 $mapperSource = Join-Path $dualsenseDir "dualsense_report_mapper.c"
+$reportSource = Join-Path $dualsenseDir "dualsense_report.c"
 $axisSource = Join-Path $bridgeDir "gamepad_axis_math.c"
 $stateSource = Join-Path $bridgeDir "internal_gamepad_state.c"
 $buildDir = Join-Path $repoRoot "work\b\tests\dualsense_report_mapper"
@@ -17,7 +18,7 @@ if ($ZigPath) {
     New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
     & $ZigPath cc -std=c11 -Wall -Wextra -Werror `
         "-I$stubDir" "-I$dualsenseDir" "-I$bridgeDir" `
-        $testSource $mapperSource $axisSource $stateSource -o $exePath
+        $testSource $mapperSource $reportSource $axisSource $stateSource -o $exePath
     if ($LASTEXITCODE -ne 0) { throw "DualSense mapper test compilation failed" }
     & $exePath
     if ($LASTEXITCODE -ne 0) { throw "DualSense mapper tests failed" }
@@ -60,6 +61,7 @@ try {
         "/I$bridgeDir" `
         $testSource `
         $mapperSource `
+        $reportSource `
         $axisSource `
         $stateSource `
         "/Fe:$exePath"

@@ -13,16 +13,10 @@ int64_t esp_timer_get_time(void)
     return s_now_us;
 }
 
-void dualsense_report_make_neutral(uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE])
+int esp_efuse_mac_get_default(uint8_t mac[6])
 {
-    memset(report, 0, DUALSENSE_INPUT_PAYLOAD_SIZE);
-    report[0] = 0x80;
-    report[1] = 0x80;
-    report[2] = 0x80;
-    report[3] = 0x80;
-    report[7] = 0x08;
-    report[25] = 0x00;
-    report[26] = 0xe0;
+    (void)mac;
+    return -1;
 }
 
 void switch2_state_to_internal(const switch2_state_t *src,
@@ -285,6 +279,63 @@ static void test_i16_min_negation_saturates(void)
                read_i16_le(report + 15));
 }
 
+static void test_gyro_calibration_matches_mapper(void)
+{
+    uint8_t feature[40];
+    expect_u32("Calibration payload size", 40,
+               (uint32_t)dualsense_report_feature_size(0x05));
+    expect_u32("Calibration payload available", 1,
+               dualsense_report_make_feature(0x05, feature, sizeof(feature)));
+    int32_t speed_sum = (int32_t)read_i16_le(feature + 18) +
+                        read_i16_le(feature + 20);
+    expect_u32("Calibration speed sum", 1000, (uint32_t)speed_sum);
+
+    internal_gamepad_state_t state;
+    internal_gamepad_state_reset(&state);
+    state.gyro_valid = true;
+    state.gyro[0] = 14247;
+    state.gyro[1] = -14247;
+    state.gyro[2] = 14247;
+    uint8_t report[DUALSENSE_INPUT_PAYLOAD_SIZE];
+    dualsense_report_mapper_init();
+    dualsense_report_mapper_from_internal(&state, report, NULL);
+    for (int axis = 0; axis < 3; axis++) {
+        int32_t plus = read_i16_le(feature + 6 + axis * 4);
+        int32_t minus = read_i16_le(feature + 8 + axis * 4);
+        expect_i16("Gyro calibration positive point", 8192, (int16_t)plus);
+        expect_i16("Gyro calibration negative point", -8192, (int16_t)minus);
+        int32_t span = plus - minus;
+        if (span <= 0) {
+            s_failures++;
+            continue;
+        }
+        // Interpret the actual mapper report using the actual feature payload,
+        // as a host does. 14247 Pro2 units represent 1000 degrees/second.
+        int32_t decoded_mdps = (int32_t)(
+            (int64_t)read_i16_le(report + 15 + axis * 2) * speed_sum * 1000 / span);
+        if (decoded_mdps != 1000000) {
+            fprintf(stderr, "FAIL calibrated gyro axis %d: expected 1000000 mdps, got %ld\n",
+                    axis, (long)decoded_mdps);
+            s_failures++;
+        }
+    }
+
+    state.gyro[0] = 1;
+    state.gyro[1] = 1;
+    state.gyro[2] = -1;
+    dualsense_report_mapper_from_internal(&state, report, NULL);
+    expect_i16("Smallest gyro X remains nonzero", 1, read_i16_le(report + 15));
+    expect_i16("Smallest gyro Y remains nonzero", -1, read_i16_le(report + 17));
+    expect_i16("Smallest gyro Z remains nonzero", -1, read_i16_le(report + 19));
+    // Accelerometer metadata is deliberately unchanged for this gyro-only test.
+    for (int axis = 0; axis < 3; axis++) {
+        expect_i16("Accel calibration retained", 10000,
+                   read_i16_le(feature + 22 + axis * 4));
+        expect_i16("Accel calibration retained negative", -10000,
+                   read_i16_le(feature + 24 + axis * 4));
+    }
+}
+
 int main(void)
 {
     test_ps5_motion_mapping();
@@ -295,6 +346,7 @@ int main(void)
     test_cached_motion_does_not_recalibrate();
     test_stationary_calibration_with_aim_held();
     test_moving_with_aim_held_does_not_calibrate();
+    test_gyro_calibration_matches_mapper();
 
     if (s_failures != 0) {
         return 1;
